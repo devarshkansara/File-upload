@@ -14,13 +14,43 @@ export const app = Fastify({
 app.register(multipart)
 
 
-app.post('/upload', async function (req, reply) {
-    const parts = req.parts({ limits: { fileSize: 5 * 1000 * 1000 } })
-    //const parts = req.parts({ limits: { fileSize: 100 * 1000 * 1000 } })
-    for await (const part of parts) {
+const validateFile = (part) => {
+    // Array of allowed files
+    const array_of_allowed_files = ['png', 'jpeg', 'jpg', 'gif'];
+    const array_of_allowed_file_types = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
 
- // upload and save the file
-await pump(part.file, fs.createWriteStream(`./upload/${part.filename}`))
+    // Get the extension of the uploaded file
+    const file_extension = part.filename.slice(
+        ((part.filename.lastIndexOf('.') - 1) >>> 0) + 2
+    );
+
+    // Check if the uploaded file is allowed
+    if (!array_of_allowed_files.includes(file_extension) || !array_of_allowed_file_types.includes(part.mimetype)) {
+        throw Error('Invalid file');
+    }
 }
-return {message : 'files uploaded' }
+// For files less than 5 MB
+app.post('/smallupload', async function (req, reply) {
+    // file size validation
+    const parts = req.parts({ limits: { fileSize: 5 * 1000 * 1000 } })
+    
+    for await (const part of parts) {
+        validateFile(part) // type validation 
+    
+        // uploads and saves the file
+        await pump(part.file, fs.createWriteStream(`./upload/${part.filename}`))
+    }
+        return { message: 'files uploaded' }
+})
+//  For files less than 100MB 
+app.post('/bigupload', async function (req, reply) {
+    //file size validation
+    const parts = req.parts({ limits: { fileSize: 100 * 1000 * 1000 } })
+    for await (const part of parts) {
+        validateFile(part) // type validation 
+
+        // uploads and saves the file
+        await pump(part.file, fs.createWriteStream(`./upload/${part.filename}`))
+    }
+    return { message: 'files uploaded' }
 })
